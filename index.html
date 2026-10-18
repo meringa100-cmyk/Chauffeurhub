@@ -34,7 +34,7 @@ document.querySelectorAll('main > section.card').forEach((card,index)=>{
   while(heading.nextSibling)content.appendChild(heading.nextSibling);
   const toggle=document.createElement('button');toggle.type='button';toggle.className='fold-toggle';
   toggle.setAttribute('aria-controls',content.id);
-  const initiallyOpen=index===0;
+  const initiallyOpen=index===0||card.querySelector('#map')!==null;
   content.hidden=!initiallyOpen;
   const updateToggle=()=>{toggle.setAttribute('aria-expanded',String(!content.hidden));toggle.innerHTML='<span class="fold-symbol">'+(content.hidden?'＋':'−')+'</span> '+(content.hidden?'Openen':'Inklappen')};
   toggle.addEventListener('click',()=>{content.hidden=!content.hidden;updateToggle();if(!content.hidden&&card.querySelector('#map')&&map)setTimeout(()=>map.invalidateSize(),100)});
