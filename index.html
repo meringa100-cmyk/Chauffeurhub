@@ -34,10 +34,15 @@ document.querySelectorAll('main > section.card').forEach((card,index)=>{
   while(heading.nextSibling)content.appendChild(heading.nextSibling);
   const toggle=document.createElement('button');toggle.type='button';toggle.className='fold-toggle';
   toggle.setAttribute('aria-controls',content.id);
-  const initiallyOpen=index===0||card.querySelector('#map')!==null;
+  const isMapCard=card.querySelector('#map')!==null;
+  const initiallyOpen=index===0||isMapCard;
   content.hidden=!initiallyOpen;
+  if(isMapCard){
+    card.appendChild(content);
+    return;
+  }
   const updateToggle=()=>{toggle.setAttribute('aria-expanded',String(!content.hidden));toggle.innerHTML='<span class="fold-symbol">'+(content.hidden?'＋':'−')+'</span> '+(content.hidden?'Openen':'Inklappen')};
-  toggle.addEventListener('click',()=>{content.hidden=!content.hidden;updateToggle();if(!content.hidden&&card.querySelector('#map')&&map)setTimeout(()=>map.invalidateSize(),100)});
+  toggle.addEventListener('click',()=>{content.hidden=!content.hidden;updateToggle()});
   heading.appendChild(toggle);card.appendChild(content);updateToggle();
 });
 function add(value=''){if(box.children.length>=8){status('Maximaal 8 ophaaladressen.',true);return}let d=document.createElement('div');d.className='entry';d.innerHTML='<span class="num">'+(box.children.length+1)+'</span><input class="addr" placeholder="Straat huisnummer, plaats"><button class="remove">×</button>';d.querySelector('.addr').value=value;d.querySelector('.remove').onclick=()=>{d.remove();renumber()};box.appendChild(d);renumber()}
