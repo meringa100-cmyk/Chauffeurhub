@@ -24,6 +24,15 @@
 #vehicleIssue{min-height:76px;resize:vertical}
 @media(min-width:700px){.hub-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
 
+
+/* Verplichte startcontrole: blokkeert de app tot de dagelijkse voertuigcheck is afgerond. */
+#vehicleGate{position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(8,25,18,.82);overflow-y:auto}
+#vehicleGate[hidden]{display:none!important}
+#vehicleGate #vehicleCheck{width:min(620px,100%);max-height:calc(100vh - 28px);overflow-y:auto;box-shadow:0 18px 60px rgba(0,0,0,.35);margin:auto}
+#vehicleGate h3{font-size:20px}
+#vehicleGate .gate-intro{font-size:14px;line-height:1.5;color:#52665a;margin:6px 0 12px}
+#vehicleGate .primary{position:sticky;bottom:0;box-shadow:0 -8px 14px rgba(255,255,255,.9)}
+body.vehicle-gate{overflow:hidden}
 </style></head>
 <body>
 <header><div style="font-size:11px;letter-spacing:.14em;color:#c8f169;font-weight:800">CHAUFFEURS HUB</div><h1>Jouw route. Slim geregeld.</h1><p>V6 · Chauffeurscockpit · routeplanning · voertuig- en veiligheidscontrole</p><div style="margin-top:9px;font-size:11px;color:#c8f169;letter-spacing:.04em">© Meringa100-CMYK · Eigenaar ChauffeursHub · Alle rechten voorbehouden</div></header>
@@ -55,7 +64,7 @@
 
 <section class="card wide" id="vehicleCheck">
 <h3>6 · Dagelijkse voertuigcontrole</h3>
-<p class="check-note">Loop deze punten vóór vertrek zelf na. Een afgevinkte controle is jouw registratie, geen automatische technische keuring.</p>
+<p class="gate-intro">Voordat je ChauffeursHub kunt gebruiken, moet je eerst de dagelijkse voertuigcontrole uitvoeren. Controleer ieder punt daadwerkelijk en vink het daarna af. De rest van het programma blijft vergrendeld totdat alle punten zijn gecontroleerd.</p><p class="check-note">Een afgevinkte controle is jouw registratie, geen automatische technische keuring.</p>
 <div class="checklist" id="vehicleChecklist">
 <label class="checkline"><input type="checkbox" data-check="tires"><span><b>Banden</b><br>Visuele controle op schade en voldoende spanning.</span></label>
 <label class="checkline"><input type="checkbox" data-check="lights"><span><b>Verlichting</b><br>Koplampen, remlichten en richtingaanwijzers gecontroleerd.</span></label>
@@ -173,10 +182,10 @@ function loadV6VehicleCheck(){
 }
 $('#saveVehicleCheck').onclick=()=>{
  const items={};document.querySelectorAll('[data-check]').forEach(x=>items[x.dataset.check]=x.checked);
- const all=Object.values(items).every(Boolean),issue=$('#vehicleIssue').value.trim();
- if(!all&&!issue){$('#vehicleStatus').textContent='Vink alle controlepunten af of beschrijf wat nog niet in orde is.';$('#vehicleStatus').className='status error';return}
+ const all=Object.values(items).length===6&&Object.values(items).every(Boolean),issue=$('#vehicleIssue').value.trim();
+ if(!all){$('#vehicleStatus').textContent='Je kunt ChauffeursHub pas openen nadat alle zes controlepunten daadwerkelijk zijn gecontroleerd en afgevinkt.';$('#vehicleStatus').className='status error';return}
  const record={date:hubToday(),time:new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}),items,issue};
- try{localStorage.setItem(HUB_V6_CHECK_KEY,JSON.stringify(record));$('#vehicleStatus').textContent='Controle lokaal geregistreerd om '+record.time+'. '+(all?'Alle punten afgevinkt.':'Niet alle punten zijn afgevinkt; aandachtspunt vastgelegd.')+(issue?' Aandachtspunt: '+issue:'');$('#vehicleStatus').className='status'+(all&&!issue?'':' error')}
+ try{localStorage.setItem(HUB_V6_CHECK_KEY,JSON.stringify(record));$('#vehicleStatus').textContent='Dagelijkse voertuigcontrole geregistreerd om '+record.time+'. Alle zes punten zijn gecontroleerd.'+(issue?' Aandachtspunt vastgelegd: '+issue:'');$('#vehicleStatus').className='status';$('#vehicleGate').hidden=true;document.body.classList.remove('vehicle-gate')}
  catch(e){$('#vehicleStatus').textContent='Opslaan is niet gelukt op dit toestel.';$('#vehicleStatus').className='status error'}
 };
 $('#resetVehicleCheck').onclick=()=>{
@@ -190,5 +199,20 @@ $('#confirmVehicleSweep').onclick=()=>{
  catch(e){$('#sweepStatus').textContent='Registratie opslaan is niet gelukt.';$('#sweepStatus').className='status error'}
 };
 
-add();add();add();restoreRideProgress();loadV6VehicleCheck();renderHubCockpit();
+/* Plaats de bestaande voertuigcheck in een verplichte start-pop-up. De check geldt één keer per kalenderdag per toestel. */
+const vehicleGate=document.createElement('div');
+vehicleGate.id='vehicleGate';
+vehicleGate.setAttribute('role','dialog');
+vehicleGate.setAttribute('aria-modal','true');
+vehicleGate.setAttribute('aria-labelledby','vehicleGateTitle');
+vehicleGate.hidden=true;
+const vehicleSection=$('#vehicleCheck');
+vehicleGate.appendChild(vehicleSection);
+document.body.appendChild(vehicleGate);
+vehicleSection.querySelector('h3').id='vehicleGateTitle';
+add();add();add();restoreRideProgress();loadV6VehicleCheck();
+let vehicleRecord=null;try{vehicleRecord=JSON.parse(localStorage.getItem(HUB_V6_CHECK_KEY)||'null')}catch(e){}
+const vehicleCheckComplete=!!(vehicleRecord&&vehicleRecord.date===hubToday()&&Object.values(vehicleRecord.items||{}).length===6&&Object.values(vehicleRecord.items||{}).every(Boolean));
+if(!vehicleCheckComplete){vehicleGate.hidden=false;document.body.classList.add('vehicle-gate');setTimeout(()=>vehicleSection.querySelector('[data-check]:not(:checked)')?.focus(),100)}
+renderHubCockpit();
 </script></body></html>
