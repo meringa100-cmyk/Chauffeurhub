@@ -156,6 +156,7 @@ $('#nav').href='https://www.google.com/maps/dir/?api=1&origin='+encodeURICompone
 /* V6: local cockpit, daily vehicle checklist and end-of-ride sweep. */
 const HUB_V6_CHECK_KEY='chauffeurshub_v6_vehicle_check';
 const HUB_V6_SWEEP_KEY='chauffeurshub_v6_vehicle_sweep';
+const HUB_V6_RECHECK_KEY='chauffeurshub_v6_recheck_on_next_open';
 function hubToday(){return new Date().toLocaleDateString('sv-SE')}
 function renderHubCockpit(){
  const total=driverStops.length,done=completedStops.size,next=driverStops.findIndex((_,i)=>!completedStops.has(i));
@@ -185,7 +186,7 @@ $('#saveVehicleCheck').onclick=()=>{
  const all=Object.values(items).length===6&&Object.values(items).every(Boolean),issue=$('#vehicleIssue').value.trim();
  if(!all){$('#vehicleStatus').textContent='Je kunt ChauffeursHub pas openen nadat alle zes controlepunten daadwerkelijk zijn gecontroleerd en afgevinkt.';$('#vehicleStatus').className='status error';return}
  const record={date:hubToday(),time:new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}),items,issue};
- try{localStorage.setItem(HUB_V6_CHECK_KEY,JSON.stringify(record));$('#vehicleStatus').textContent='Dagelijkse voertuigcontrole geregistreerd om '+record.time+'. Alle zes punten zijn gecontroleerd.'+(issue?' Aandachtspunt vastgelegd: '+issue:'');$('#vehicleStatus').className='status';$('#vehicleGate').hidden=true;document.body.classList.remove('vehicle-gate')}
+ try{localStorage.setItem(HUB_V6_CHECK_KEY,JSON.stringify(record));localStorage.removeItem(HUB_V6_RECHECK_KEY);$('#vehicleStatus').textContent='Dagelijkse voertuigcontrole geregistreerd om '+record.time+'. Alle zes punten zijn gecontroleerd.'+(issue?' Aandachtspunt vastgelegd: '+issue:'');$('#vehicleStatus').className='status';$('#vehicleGate').hidden=true;document.body.classList.remove('vehicle-gate')}
  catch(e){$('#vehicleStatus').textContent='Opslaan is niet gelukt op dit toestel.';$('#vehicleStatus').className='status error'}
 };
 $('#resetVehicleCheck').onclick=()=>{
@@ -195,7 +196,7 @@ $('#resetVehicleCheck').onclick=()=>{
 $('#confirmVehicleSweep').onclick=()=>{
  if(!$('#finalVehicleSweep').checked){$('#sweepStatus').textContent='Vink eerst aan dat je alle zitplaatsen en relevante ruimtes persoonlijk hebt gecontroleerd.';$('#sweepStatus').className='status error';return}
  const record={date:hubToday(),time:new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}),confirmed:true};
- try{localStorage.setItem(HUB_V6_SWEEP_KEY,JSON.stringify(record));$('#sweepStatus').textContent='Persoonlijke eindcontrole geregistreerd om '+record.time+'.';$('#sweepStatus').className='status'}
+ try{localStorage.setItem(HUB_V6_SWEEP_KEY,JSON.stringify(record));localStorage.setItem(HUB_V6_RECHECK_KEY,'1');$('#sweepStatus').textContent='Persoonlijke eindcontrole geregistreerd om '+record.time+'. Bij de volgende keer openen verschijnt de voertuigcontrole opnieuw.';$('#sweepStatus').className='status'}
  catch(e){$('#sweepStatus').textContent='Registratie opslaan is niet gelukt.';$('#sweepStatus').className='status error'}
 };
 
@@ -216,6 +217,7 @@ vehicleSection.querySelector('h3').id='vehicleGateTitle';
 add();add();add();restoreRideProgress();loadV6VehicleCheck();
 let vehicleRecord=null;try{vehicleRecord=JSON.parse(localStorage.getItem(HUB_V6_CHECK_KEY)||'null')}catch(e){}
 const vehicleCheckComplete=!!(vehicleRecord&&vehicleRecord.date===hubToday()&&Object.values(vehicleRecord.items||{}).length===6&&Object.values(vehicleRecord.items||{}).every(Boolean));
-if(!vehicleCheckComplete){vehicleGate.hidden=false;document.body.classList.add('vehicle-gate');setTimeout(()=>vehicleSection.querySelector('[data-check]:not(:checked)')?.focus(),100)}
+let forceVehicleRecheck=false;try{forceVehicleRecheck=localStorage.getItem(HUB_V6_RECHECK_KEY)==='1'}catch(e){}
+if(!vehicleCheckComplete||forceVehicleRecheck){vehicleGate.hidden=false;document.body.classList.add('vehicle-gate');setTimeout(()=>vehicleSection.querySelector('[data-check]:not(:checked)')?.focus(),100)}
 renderHubCockpit();
 </script></body></html>
