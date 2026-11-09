@@ -193,12 +193,32 @@ $('#resetVehicleCheck').onclick=()=>{
  document.querySelectorAll('[data-check]').forEach(x=>x.checked=false);$('#vehicleIssue').value='';
  $('#vehicleStatus').textContent='Controleformulier leeggemaakt. Eerder opgeslagen registratie blijft bewaard.';
 };
+function showVehicleGateForRecheck(){
+ let required=false;try{required=localStorage.getItem(HUB_V6_RECHECK_KEY)==='1'}catch(e){}
+ if(!required)return;
+ /* Dwing een volledig nieuwe handmatige controle af, niet alleen het opnieuw tonen van oude vinkjes. */
+ document.querySelectorAll('#vehicleChecklist [data-check]').forEach(x=>x.checked=false);
+ $('#vehicleIssue').value='';
+ $('#vehicleStatus').textContent='Na de vorige rit is een nieuwe voertuigcontrole verplicht. Controleer alle zes punten opnieuw.';
+ $('#vehicleStatus').className='status error';
+ $('#vehicleGate').hidden=false;
+ document.body.classList.add('vehicle-gate');
+}
 $('#confirmVehicleSweep').onclick=()=>{
  if(!$('#finalVehicleSweep').checked){$('#sweepStatus').textContent='Vink eerst aan dat je alle zitplaatsen en relevante ruimtes persoonlijk hebt gecontroleerd.';$('#sweepStatus').className='status error';return}
  const record={date:hubToday(),time:new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}),confirmed:true};
- try{localStorage.setItem(HUB_V6_SWEEP_KEY,JSON.stringify(record));localStorage.setItem(HUB_V6_RECHECK_KEY,'1');$('#sweepStatus').textContent='Persoonlijke eindcontrole geregistreerd om '+record.time+'. Bij de volgende keer openen verschijnt de voertuigcontrole opnieuw.';$('#sweepStatus').className='status'}
+ try{
+  localStorage.setItem(HUB_V6_SWEEP_KEY,JSON.stringify(record));
+  localStorage.setItem(HUB_V6_RECHECK_KEY,'1');
+  localStorage.removeItem(HUB_V6_CHECK_KEY);
+  $('#sweepStatus').textContent='Persoonlijke eindcontrole geregistreerd om '+record.time+'. Bij terugkeer in de app moet je de voertuigcontrole opnieuw uitvoeren.';
+  $('#sweepStatus').className='status';
+ }
  catch(e){$('#sweepStatus').textContent='Registratie opslaan is niet gelukt.';$('#sweepStatus').className='status error'}
 };
+/* Een geïnstalleerde app kan hervatten zonder de pagina opnieuw te laden. */
+window.addEventListener('pageshow',showVehicleGateForRecheck);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)showVehicleGateForRecheck()});
 
 /* Plaats de bestaande voertuigcheck in een verplichte start-pop-up. De check geldt één keer per kalenderdag per toestel. */
 const vehicleGate=document.createElement('div');
