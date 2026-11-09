@@ -209,6 +209,9 @@ vehicleGate.hidden=true;
 const vehicleSection=$('#vehicleCheck');
 vehicleGate.appendChild(vehicleSection);
 document.body.appendChild(vehicleGate);
+/* De checklist-inhoud moet in de pop-up altijd volledig openstaan. */
+const gateContent=vehicleSection.querySelector('.fold-content');if(gateContent)gateContent.hidden=false;
+const gateToggle=vehicleSection.querySelector('.fold-toggle');if(gateToggle)gateToggle.remove();
 vehicleSection.querySelector('h3').id='vehicleGateTitle';
 add();add();add();restoreRideProgress();loadV6VehicleCheck();
 let vehicleRecord=null;try{vehicleRecord=JSON.parse(localStorage.getItem(HUB_V6_CHECK_KEY)||'null')}catch(e){}
