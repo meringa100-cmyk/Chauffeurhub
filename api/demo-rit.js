@@ -73,8 +73,31 @@ export default async function handler(req, res) {
       const trip = await loadTrip();
       if (body.eventType === 'trip_completed') {
         if (!String(body.destination || '').trim()) return send(res, 400, { error: 'School/eindbestemming ontbreekt.' });
-        if (!Array.isArray(trip.stops) || trip.stops.some(stop => !['picked', 'absent'].includes(stop.status))) {
-          return send(res, 409, { error: 'Niet alle demo-stops zijn als opgehaald of niet aanwezig afgehandeld.' });
+        if (!Array.isArray(body.stopResults) || !Array.isArray(trip.stops)) {
+          return send(res, 400, { error: 'De afgehandelde stops ontbreken in de afrondmelding.' });
+        }
+        const allowedStopIds = new Set(trip.stops.map(stop => stop.stopId));
+        const supplied = new Map();
+        for (const item of body.stopResults) {
+          if (!item || !allowedStopIds.has(item.stopId) || !['picked', 'absent'].includes(item.status)) {
+            return send(res, 400, { error: 'Ongeldige stopstatus in de afrondmelding.' });
+          }
+          supplied.set(item.stopId, item.status);
+        }
+        if (supplied.size !== trip.stops.length || trip.stops.some(stop => !supplied.has(stop.stopId))) {
+          return send(res, 409, { error: 'Niet alle demo-stops zijn in ChauffeursHub afgehandeld.' });
+        }
+        trip.events = Array.isArray(trip.events) ? trip.events : [];
+        for (const stop of trip.stops) {
+          const finalStatus = supplied.get(stop.stopId);
+          if (stop.status !== finalStatus) {
+            trip.events.push({
+              eventId: 'DEMO-EVENT-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
+              tripId: trip.tripId, stopId: stop.stopId, eventType: finalStatus,
+              occurredAt: new Date().toISOString(), source: 'ChauffeursHub-ritafronding',
+            });
+            stop.status = finalStatus;
+          }
         }
         const event = {
           eventId: 'DEMO-EVENT-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
