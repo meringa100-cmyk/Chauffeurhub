@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "environment": "demo",
+  "generatedAt": "2026-11-16T10:00:00Z",
+  "tripId": "DEMO-EMMEN-001",
+  "serviceDate": "2026-11-17",
+  "driverId": "DEMO-CHAUFFEUR-01",
+  "driverName": "Demochauffeur 01",
+  "vehicleId": "DEMO-BUS-01",
+  "departure": "07:15",
+  "destination": {
+    "name": "Demo-school",
+    "address": "Schoolplein, Emmen, Nederland",
+    "arrivalDeadline": "08:30"
+  },
+  "stops": [
+    {
+      "stopId": "DEMO-STOP-001",
+      "order": 1,
+      "label": "Teststop 1",
+      "address": "Raadhuisplein, Emmen, Nederland",
+      "plannedPickup": "07:30",
+      "status": "waiting"
+    },
+    {
+      "stopId": "DEMO-STOP-002",
+      "order": 2,
+      "label": "Teststop 2",
+      "address": "Noorderplein, Emmen, Nederland",
+      "plannedPickup": "07:42",
+      "status": "waiting"
+    }
+  ],
+  "events": []
+}
