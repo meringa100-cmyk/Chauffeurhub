@@ -10,7 +10,7 @@
   "departure": "07:15",
   "destination": {
     "name": "Demo-school",
-    "address": "Schoolplein, Emmen, Nederland",
+    "address": "Laan van de Marel 165, Emmen, Nederland",
     "arrivalDeadline": "08:30"
   },
   "stops": [
