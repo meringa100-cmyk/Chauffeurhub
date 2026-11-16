@@ -56,7 +56,7 @@ body.vehicle-gate{overflow:hidden}
 <label for="school">School / eindbestemming (optioneel)</label><input id="school" placeholder="Schoolnaam, straat en plaats">
 <div class="grid"><div><label for="deadline">Aankomst uiterlijk</label><input id="deadline" type="time" value="08:30"></div><div><label for="buffer">Verkeersbuffer (min)</label><input id="buffer" type="number" min="0" max="60" value="10"></div></div>
 <label>Kinderen en ophaaladressen (max. 8)</label><div id="addresses"></div><p class="hint">Vul per stop eventueel de naam van het kind in. De naam is optioneel.</p><div class="row"><button id="add" class="secondary">＋ Adres toevoegen</button><button id="demo" class="secondary">Voorbeeldrit</button></div>
-<button id="loadGitHubDemo" class="secondary" style="width:100%;margin-top:8px">☁️ Laad testopdracht uit GitHub</button><p class="hint">Haalt uitsluitend de fictieve testopdracht uit de openbare integratiemap op.</p>
+<button id="loadGitHubDemo" class="secondary" style="width:100%;margin-top:8px">☁️ Laad testopdracht uit GitHub</button><p class="hint">Haalt uitsluitend de fictieve testopdracht op via de beveiligde testserver.</p>
 <button id="calc" class="primary">✦ Bereken route</button><div id="status" class="status">Vul de ophaaladressen in en bereken je route.</div>
 </section>
 <section class="card"><h3>2 · Routekaart</h3><div id="map"></div><div class="stats"><div class="stat"><b id="km">—</b><span>kilometer</span></div><div class="stat"><b id="drive">—</b><span>geschatte rijtijd</span></div><div class="stat"><b id="leave">—</b><span>uiterlijk vertrekken</span></div><div class="stat"><b id="schooltime">08:30</b><span>schooltijd</span></div></div><a id="nav" class="btn primary" style="display:none" target="_blank" rel="noopener">↗ Open route in Google Maps</a><p class="hint">Rijtijden zijn schattingen en bevatten geen gegarandeerde live verkeersinformatie.</p></section>
@@ -132,7 +132,7 @@ $('#loadGitHubDemo').onclick=async()=>{
  const btn=$('#loadGitHubDemo');btn.disabled=true;btn.textContent='☁️ Testopdracht ophalen…';
  try{
   const response=await fetch('https://chauffeurshub-api-meringa100-cmyk.vercel.app/api/demo-rit?cache='+(Date.now()),{cache:'no-store'});
-  if(!response.ok)throw new Error('GitHub gaf HTTP '+response.status);
+  if(!response.ok)throw new Error('De testserver gaf HTTP '+response.status);
   const trip=await response.json();
   if(trip.environment!=='demo'||trip.schemaVersion!==1||!Array.isArray(trip.stops)||trip.stops.length>8)throw new Error('Ongeldige of niet-toegestane testopdracht.');
   box.innerHTML='';
@@ -140,8 +140,7 @@ $('#loadGitHubDemo').onclick=async()=>{
   $('#start').value='Emmen, Nederland';
   $('#school').value=String(trip.destination?.address||'');
   $('#deadline').value=String(trip.destination?.arrivalDeadline||'08:30');
-  status('GitHub-testopdracht '+trip.tripId+' geladen voor '+trip.driverName+'. Route wordt berekend…');
-  $('#calc').click();
+  status('✓ Testopdracht '+trip.tripId+' geladen voor '+trip.driverName+'. Controleer de adressen en druk daarna op Bereken route.');
  }catch(e){status('Testopdracht laden mislukt: '+(e.message||'onbekende fout'),true)}
  finally{btn.disabled=false;btn.textContent='☁️ Laad testopdracht uit GitHub'}
 };
