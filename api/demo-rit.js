@@ -55,6 +55,20 @@ export default async function handler(req, res) {
       if (!body || body.environment !== 'demo' || body.tripId !== 'DEMO-EMMEN-001') {
         return send(res, 400, { error: 'Alleen de vaste fictieve demo-opdracht is toegestaan.' });
       }
+      if (body.action === 'reset') {
+        const response = await fetch(FIXTURE_URL, { cache: 'no-store' });
+        if (!response.ok) throw new Error('Schone demo-testopdracht kon niet worden geladen.');
+        const freshTrip = await response.json();
+        if (freshTrip.environment !== 'demo' || freshTrip.tripId !== 'DEMO-EMMEN-001' || !Array.isArray(freshTrip.stops) || freshTrip.stops.some(stop => !String(stop.stopId || '').startsWith('DEMO-STOP-'))) {
+          return send(res, 409, { error: 'De vaste demo-basisgegevens zijn niet geldig; reset afgebroken.' });
+        }
+        freshTrip.events = [];
+        freshTrip.stops.forEach(stop => { stop.status = 'waiting'; });
+        await put(STORE_PATH, JSON.stringify(freshTrip), {
+          access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json',
+        });
+        return send(res, 200, { ok: true, message: 'Demo-opdracht schoon teruggezet.', trip: freshTrip });
+      }
       if (!ALLOWED_EVENTS.has(body.eventType)) return send(res, 400, { error: 'Ongeldig type terugmelding.' });
       const trip = await loadTrip();
       const stop = trip.stops.find(item => item.stopId === body.stopId);
