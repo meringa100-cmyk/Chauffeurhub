@@ -3,7 +3,7 @@ import { get, put } from '@vercel/blob';
 const ORIGIN = 'https://meringa100-cmyk.github.io';
 const FIXTURE_URL = 'https://raw.githubusercontent.com/meringa100-cmyk/Chauffeurhub/main/integration/ritten-demo.json';
 const STORE_PATH = 'demo/ritten-demo.json';
-const ALLOWED_EVENTS = new Set(['picked', 'absent', 'delay', 'school']);
+const ALLOWED_EVENTS = new Set(['picked', 'absent', 'delay', 'school', 'trip_completed']);
 
 function send(res, status, body) {
   res.status(status).setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -71,6 +71,30 @@ export default async function handler(req, res) {
       }
       if (!ALLOWED_EVENTS.has(body.eventType)) return send(res, 400, { error: 'Ongeldig type terugmelding.' });
       const trip = await loadTrip();
+      if (body.eventType === 'trip_completed') {
+        if (!String(body.destination || '').trim()) return send(res, 400, { error: 'School/eindbestemming ontbreekt.' });
+        if (!Array.isArray(trip.stops) || trip.stops.some(stop => !['picked', 'absent'].includes(stop.status))) {
+          return send(res, 409, { error: 'Niet alle demo-stops zijn als opgehaald of niet aanwezig afgehandeld.' });
+        }
+        const event = {
+          eventId: 'DEMO-EVENT-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
+          tripId: trip.tripId,
+          eventType: 'trip_completed',
+          destination: String(body.destination).slice(0, 300),
+          arrivalTime: body.arrivalTime || new Date().toISOString(),
+          occurredAt: new Date().toISOString(),
+          source: 'ChauffeursHub',
+        };
+        trip.events = Array.isArray(trip.events) ? trip.events : [];
+        trip.events.push(event);
+        trip.tripStatus = 'completed';
+        trip.completedAt = event.occurredAt;
+        trip.completedDestination = event.destination;
+        await put(STORE_PATH, JSON.stringify(trip), {
+          access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json',
+        });
+        return send(res, 200, { ok: true, event, trip });
+      }
       const stop = trip.stops.find(item => item.stopId === body.stopId);
       if (!stop) return send(res, 404, { error: 'Teststop niet gevonden.' });
       const event = {
