@@ -132,17 +132,25 @@ function saveRideProgress(){try{if(!driverStops.length){localStorage.removeItem(
   return;
  }
  if(!$('#school').value.trim()){
-  $('#rideNotice').textContent='Vul eerst de school/eindbestemming in voordat je de rit afrondt.';
+  const card=$('#school').closest('section.card'),fold=card?.querySelector('.fold-content'),toggle=card?.querySelector('.fold-toggle');
+  if(fold)fold.hidden=false;
+  if(toggle){toggle.setAttribute('aria-expanded','true');toggle.innerHTML='<span class="fold-symbol">−</span> Inklappen'}
+  $('#rideNotice').textContent='Vul eerst de school/eindbestemming in bij Rit instellen.';
   $('#rideNotice').className='driver-notice warn';
   $('#school').scrollIntoView({behavior:'smooth',block:'center'});
+  $('#school').focus({preventScroll:true});
   return;
  }
  let sweep=null;try{sweep=JSON.parse(localStorage.getItem(HUB_V6_SWEEP_KEY)||'null')}catch(e){}
  const signature=driverStops.map(x=>x.address).join('|');
  if(!activeRideId||!sweep||sweep.date!==hubToday()||sweep.rideId!==activeRideId||sweep.rideSignature!==signature){
-  $('#sweepStatus').textContent='Voer eerst de persoonlijke eindcontrole uit voor deze rit. Daarna kun je de rit afronden.';
+  const safety=$('#safetyCheck'),fold=safety?.querySelector('.fold-content'),toggle=safety?.querySelector('.fold-toggle');
+  if(fold)fold.hidden=false;
+  if(toggle){toggle.setAttribute('aria-expanded','true');toggle.innerHTML='<span class="fold-symbol">−</span> Inklappen'}
+  $('#sweepStatus').textContent='Nog één verplichte stap: vink hieronder aan dat je de bus volledig hebt nagelopen en druk op “Controle afronden en registreren”. Daarna werkt Rit afronden.';
   $('#sweepStatus').className='status error';
-  $('#safetyCheck').scrollIntoView({behavior:'smooth',block:'center'});
+  safety?.scrollIntoView({behavior:'smooth',block:'center'});
+  $('#finalVehicleSweep').focus({preventScroll:true});
   return;
  }
  const btn=$('#finishRide');btn.disabled=true;btn.textContent='⏳ Rit afsluiten…';
