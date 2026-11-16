@@ -1,13 +1,23 @@
 # Taxi Planner ↔ ChauffeursHub — testkoppeling
 
-Deze map bevat het openbare **testcontract** voor de eerste koppeling tussen Taxi Planner V1053 en ChauffeursHub.
+Deze map bevat het openbare **testcontract** voor de koppeling tussen Taxi Planner V1053 en ChauffeursHub.
 
-## Privacy en status
+## Huidige testarchitectuur
 
-- Alleen synthetische testgegevens zijn toegestaan in deze openbare repository.
-- Plaats hier nooit echte kindnamen, woonadressen, telefoonnummers, oudergegevens, medische of veiligheidsnotities.
-- Dit bestand is een testfixture; het is geen live database.
-- GitHub Pages kan JSON uitleveren, maar kan vanuit een browserapp niet veilig wijzigingen ontvangen. Voor live terugmeldingen is een server-side endpoint nodig. Er komt geen GitHub-token in HTML of JavaScript.
+- ChauffeursHub V10 haalt de vaste fictieve opdracht op via de Vercel API.
+- De API bewaart de demo-opdracht en terugmeldingen in een **private Vercel Blob-store**.
+- De chauffeur kan voor een teststop `picked` (opgehaald) of `absent` (niet aanwezig) terugmelden.
+- Taxi Planner V1053 toont de ontvangen demo-statussen in een apart testpaneel.
+- De bestaande routeplanning en echte rit-/kindgegevens worden door deze testkoppeling niet gewijzigd.
+
+## Privacy en begrenzing
+
+- De API accepteert uitsluitend `environment: "demo"` en de vaste ritcode `DEMO-EMMEN-001`.
+- Alleen de twee fictieve teststops uit `ritten-demo.json` worden geaccepteerd.
+- De demo-API is bewust een openbare proefinterface en is **niet geschikt voor echte persoonsgegevens of productiegebruik**.
+- De CORS-regel beperkt browsergebruik tot de GitHub Pages-origin, maar CORS is geen authenticatie.
+- Voor productie zijn chauffeur-login, persoonlijke tokens/PIN-verificatie, planner-autorisatie, logging en passende bewaartermijnen nodig.
+- Plaats nooit echte kindnamen, woonadressen, telefoonnummers, oudergegevens, medische of veiligheidsnotities in deze openbare repository.
 
 ## V1 gegevenscontract
 
@@ -22,8 +32,14 @@ Een rit bevat:
 
 ## V2 terugmeldingen
 
-ChauffeursHub stuurt later alleen statusgebeurtenissen terug: `picked`, `absent`, `school` en `delay`, met `tripId`, `stopId` en tijdstip. De planner past alleen de betreffende stopstatus aan; routeplanning blijft buiten de integratielaag.
+ChauffeursHub stuurt statusgebeurtenissen terug: `picked`, `absent`, `delay` en `school`, met `tripId`, `stopId` en tijdstip. De huidige demo-interface toont `picked` en `absent` als eerste teststappen. De planner leest de statussen alleen in een afzonderlijk testpaneel; er worden nog geen echte ritten aangepast.
 
 ## Testen
 
-Gebruik `ritten-demo.json` als voorbeeld. De waarden zijn fictief en bedoeld om het gegevenscontract te controleren.
+1. Open ChauffeursHub V10 en laad de demo-opdracht.
+2. Bereken de route.
+3. Meld bij een teststop `Kind opgehaald` of `Kind niet aanwezig`.
+4. Open Taxi Planner V1053 en kies `Status ophalen uit ChauffeursHub` in het testpaneel.
+5. Controleer of de demo-status en het aantal terugmeldingen zijn bijgewerkt.
+
+De waarden zijn fictief en bedoeld om de technische gegevensstroom te controleren.
