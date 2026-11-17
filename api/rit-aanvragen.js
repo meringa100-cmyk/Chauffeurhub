@@ -12,6 +12,8 @@ export default async function handler(req,res){
  try{
   const data=await load();data.requests=Array.isArray(data.requests)?data.requests:[];
   if(req.method==='GET'){
+   const requestId=String(req.query?.requestId||'').trim();
+   if(requestId){const request=data.requests.find(x=>x.requestId===requestId);return request?send(res,200,{ok:true,request}):send(res,404,{ok:false,error:'Aanvraag niet gevonden.'});}
    const status=req.query?.status||'all';
    return send(res,200,{ok:true,requests:data.requests.filter(x=>status==='all'||x.status===status).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))});
   }
