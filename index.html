@@ -366,12 +366,28 @@ renderRideHistory();
    });
    const data=await response.json();
    if(!response.ok||!data.ok)throw new Error(data.error||'Versturen mislukt');
-   status.textContent='✓ Aanvraag '+data.request.requestId+' is bij Planning afgeleverd. De rit wordt pas na goedkeuring ingepland.';
+   localStorage.setItem('hub_ride_request_last',data.request.requestId);
+   status.textContent='✓ Aanvraag '+data.request.requestId+' is bij Planning afgeleverd. Status wordt automatisch bijgewerkt zodra Planning reageert.';
    status.className='status';
    ['requestChild','requestAddress','requestDestination','requestNote'].forEach(id=>document.getElementById(id).value='');
+   checkLastRideRequestV2();
   }catch(error){status.textContent='Niet verzonden: '+(error.message||'verbindingsfout');status.className='status error';}
   finally{button.disabled=false;button.textContent='📨 Verstuur naar planning';}
  });
 })();
+
+async function checkLastRideRequestV2(){
+ const id=localStorage.getItem('hub_ride_request_last');if(!id)return;
+ const status=document.getElementById('requestStatus');if(!status)return;
+ try{
+  const r=await fetch('https://chauffeurshub-api-meringa100-cmyk.vercel.app/api/rit-aanvragen?requestId='+encodeURIComponent(id)+'&v='+Date.now(),{cache:'no-store'});
+  const d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'HTTP '+r.status);
+  const q=d.request;
+  if(q.status==='approved'){status.textContent='✓ Planning heeft aanvraag '+id+' overgenomen. De aanvraag is verwerkt in Taxi Planner.';status.className='status';}
+  else if(q.status==='rejected'){status.textContent='✕ Planning heeft aanvraag '+id+' afgewezen. Neem contact op met Planning als je uitleg nodig hebt.';status.className='status error';}
+  else{status.textContent='⏳ Aanvraag '+id+' staat nog open bij Planning.';status.className='status';}
+ }catch(e){status.textContent='Aanvraagstatus tijdelijk niet beschikbaar. Probeer later opnieuw.';}
+}
+(function(){const id=localStorage.getItem('hub_ride_request_last');if(id){checkLastRideRequestV2();setInterval(checkLastRideRequestV2,30000);}})();
 </script>
 </body></html>
