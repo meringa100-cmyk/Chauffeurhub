@@ -2,7 +2,7 @@ import { get, put } from '@vercel/blob';
 
 const ORIGIN = 'https://meringa100-cmyk.github.io';
 const STORE_PATH = 'demo/planner-ritten.json';
-const ALLOWED_STATUS = new Set(['waiting', 'picked', 'absent', 'school', 'delay']);
+const ALLOWED_STATUS = new Set(['waiting', 'picked', 'absent', 'school', 'delay', 'loose']);
 
 function send(res, status, body) {
   res.status(status);
@@ -65,6 +65,9 @@ export default async function handler(req, res) {
     data.rides = Array.isArray(data.rides) ? data.rides : [];
 
     if (req.method === 'GET') {
+      if (req.query?.mode === 'statuses') {
+        return send(res, 200, { ok: true, demo: true, updatedAt: data.updatedAt, statuses: data.rides.map(ride => ({ id: ride.id, status: ride.status, delay: ride.delay, updatedAt: ride.updatedAt })) });
+      }
       const driverNumber = cleanText(req.query?.driverNumber, 8);
       if (!/^\d{4,8}$/.test(driverNumber)) return send(res, 400, { error: 'Geef een geldig test-chauffeursnummer op.' });
       const rides = data.rides
