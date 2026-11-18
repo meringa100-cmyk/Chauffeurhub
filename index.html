@@ -427,6 +427,7 @@ function hubRenderPlannerRidesV1(){
    '<button class="secondary" type="button" onclick="hubSetPlannerRideStatusV1('+JSON.stringify(ride.id)+',\'delay\',10)">+10 min</button>'+
    '</div></article>';
  }).join('');
+ box.querySelectorAll('button[data-ride]').forEach(button=>button.addEventListener('click',()=>hubSetPlannerRideStatusV1(button.dataset.ride,button.dataset.status,Number(button.dataset.delay)||0)));
 }
 async function hubLoadPlannerRidesV1(){
  const number=document.getElementById('hubTestDriver')?.value;
