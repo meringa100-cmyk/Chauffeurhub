@@ -38,6 +38,15 @@ body.vehicle-gate{overflow:hidden}
 <body>
 <header><div style="font-size:11px;letter-spacing:.14em;color:#c8f169;font-weight:800">CHAUFFEURS HUB</div><h1>Jouw route. Slim geregeld.</h1><p>V10.6 · GitHub testkoppeling · routeplanning · voertuig- en veiligheidscontrole</p><div style="margin-top:9px;font-size:11px;color:#c8f169;letter-spacing:.04em">© Meringa100-CMYK · Eigenaar ChauffeursHub · Alle rechten voorbehouden</div></header>
 <main>
+<section class="card wide" id="hubPlannerRidesV1" style="border:2px solid #1769aa;background:#f3f8fd">
+<h3>🚕 Mijn ritten uit Taxi Planner <span class="hub-pill">TEST</span></h3>
+<p class="hint">Kies een bestaand fictief chauffeursnummer uit Taxi Planner. Je ziet alleen de ritten die aan dat nummer zijn toegewezen. Statusknoppen sturen testmeldingen terug naar Taxi Planner.</p>
+<label for="hubTestDriver">Chauffeursnummer</label>
+<div class="row"><select id="hubTestDriver" aria-label="Testchauffeursnummer"></select><button type="button" class="secondary" id="hubLoadPlannerRides">↻ Ritten ophalen</button></div>
+<div class="status" id="hubPlannerRideStatus" role="status" aria-live="polite">Kies een chauffeursnummer en haal de ritten op.</div>
+<div id="hubPlannerRideList" style="margin-top:10px"></div>
+</section>
+
 
 <section class="card wide" id="newRideRequest">
 <h3>📨 Nieuw adres aanmelden bij Planning</h3>
@@ -389,5 +398,65 @@ async function checkLastRideRequestV2(){
  }catch(e){status.textContent='Aanvraagstatus tijdelijk niet beschikbaar. Probeer later opnieuw.';}
 }
 (function(){const id=localStorage.getItem('hub_ride_request_last');if(id){checkLastRideRequestV2();setInterval(checkLastRideRequestV2,30000);}})();
+
+/* ChauffeursHub V1 test feed: fictieve ritten uit Taxi Planner, geselecteerd per bestaand chauffeursnummer. */
+const HUB_PLANNER_DEMO_API_V1='https://chauffeurshub-api-meringa100-cmyk.vercel.app/api/planner-demo-ritten';
+let hubPlannerRidesV1=[];
+function hubEscV1(value){
+ return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function hubInitPlannerDriversV1(){
+ const select=document.getElementById('hubTestDriver');
+ if(!select||select.options.length)return;
+ for(let n=1001;n<=1060;n++){
+  const option=document.createElement('option');option.value=String(n);option.textContent='Chauffeur '+n;select.appendChild(option);
+ }
+}
+function hubRenderPlannerRidesV1(){
+ const box=document.getElementById('hubPlannerRideList');if(!box)return;
+ if(!hubPlannerRidesV1.length){box.innerHTML='<div class="status">Geen ritten gevonden voor dit chauffeursnummer. Publiceer eerst de huidige planning vanuit Taxi Planner.</div>';return;}
+ box.innerHTML=hubPlannerRidesV1.map((ride,index)=>{
+  const statusLabel=({waiting:'Wachtend',picked:'Opgehaald / onderweg',absent:'Afwezig',school:'Op school',loose:'Loosmelding',delay:'Vertraging'})[ride.status]||ride.status;
+  return '<article class="history-item"><b>'+(index+1)+'. '+hubEscV1(ride.time)+' · '+hubEscV1(ride.childName||'Kind')+'</b>'+
+   '<div>'+hubEscV1(ride.address)+'</div><div class="hint">Bestemming: '+hubEscV1(ride.destination||'—')+'</div>'+
+   '<div class="hint">Status: <strong>'+hubEscV1(statusLabel)+'</strong>'+(ride.delay?' · vertraging '+hubEscV1(ride.delay)+' min':'')+'</div>'+
+   '<div class="history-actions">'+
+   '<button class="secondary" type="button" data-ride="'+hubEscV1(ride.id)+'" data-status="picked">✓ Opgehaald</button>'+
+   '<button class="secondary" type="button" data-ride="'+hubEscV1(ride.id)+'" data-status="absent">Afwezig</button>'+
+   '<button class="secondary" type="button" data-ride="'+hubEscV1(ride.id)+'" data-status="school">🏫 Op school</button>'+
+   '<button class="secondary" type="button" data-ride="'+hubEscV1(ride.id)+'" data-status="delay" data-delay="10">+10 min</button>'+
+   '</div></article>';
+ }).join('');
+ box.querySelectorAll('button[data-ride]').forEach(button=>button.addEventListener('click',()=>hubSetPlannerRideStatusV1(button.dataset.ride,button.dataset.status,Number(button.dataset.delay)||0)));
+}
+async function hubLoadPlannerRidesV1(){
+ const number=document.getElementById('hubTestDriver')?.value;
+ const status=document.getElementById('hubPlannerRideStatus');
+ if(!number)return;
+ if(status)status.textContent='Ritten ophalen…';
+ try{
+  const response=await fetch(HUB_PLANNER_DEMO_API_V1+'?driverNumber='+encodeURIComponent(number),{cache:'no-store'});
+  const data=await response.json();
+  if(!response.ok||!data.ok)throw new Error(data.error||'Ophalen mislukt');
+  hubPlannerRidesV1=data.rides||[];
+  hubRenderPlannerRidesV1();
+  if(status)status.textContent=hubPlannerRidesV1.length+' ritten gevonden voor chauffeur '+number+'. Laatste Planner-publicatie: '+(data.updatedAt?new Date(data.updatedAt).toLocaleString('nl-NL'):'onbekend')+'.';
+ }catch(error){if(status)status.textContent='Koppeling niet bereikbaar: '+(error.message||'onbekende fout');}
+}
+async function hubSetPlannerRideStatusV1(rideId,nextStatus,delay=0){
+ const number=document.getElementById('hubTestDriver')?.value;
+ const status=document.getElementById('hubPlannerRideStatus');
+ try{
+  const response=await fetch(HUB_PLANNER_DEMO_API_V1,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'status',rideId,driverNumber:number,status:nextStatus,delay})});
+  const data=await response.json();
+  if(!response.ok||!data.ok)throw new Error(data.error||'Status niet opgeslagen');
+  if(status)status.textContent='Teststatus bijgewerkt. Haal daarna in Taxi Planner de Chauffeursstatussen op.';
+  await hubLoadPlannerRidesV1();
+ }catch(error){if(status)status.textContent='Status niet opgeslagen: '+(error.message||'onbekende fout');}
+}
+window.hubSetPlannerRideStatusV1=hubSetPlannerRideStatusV1;
+document.getElementById('hubLoadPlannerRides')?.addEventListener('click',hubLoadPlannerRidesV1);
+hubInitPlannerDriversV1();
+
 </script>
 </body></html>
