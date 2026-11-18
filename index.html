@@ -421,10 +421,10 @@ function hubRenderPlannerRidesV1(){
    '<div>'+hubEscV1(ride.address)+'</div><div class="hint">Bestemming: '+hubEscV1(ride.destination||'—')+'</div>'+
    '<div class="hint">Status: <strong>'+hubEscV1(statusLabel)+'</strong>'+(ride.delay?' · vertraging '+hubEscV1(ride.delay)+' min':'')+'</div>'+
    '<div class="history-actions">'+
-   '<button class="secondary" type="button" onclick="hubSetPlannerRideStatusV1('+JSON.stringify(ride.id)+',\'picked\')">✓ Opgehaald</button>'+
-   '<button class="secondary" type="button" onclick="hubSetPlannerRideStatusV1('+JSON.stringify(ride.id)+',\'absent\')">Afwezig</button>'+
-   '<button class="secondary" type="button" onclick="hubSetPlannerRideStatusV1('+JSON.stringify(ride.id)+',\'school\')">🏫 Op school</button>'+
-   '<button class="secondary" type="button" onclick="hubSetPlannerRideStatusV1('+JSON.stringify(ride.id)+',\'delay\',10)">+10 min</button>'+
+   '<button class="secondary" type="button" data-ride="'+hubEscV1(ride.id)+'" data-status="picked">✓ Opgehaald</button>'+
+   '<button class="secondary" type="button" data-ride="'+hubEscV1(ride.id)+'" data-status="absent">Afwezig</button>'+
+   '<button class="secondary" type="button" data-ride="'+hubEscV1(ride.id)+'" data-status="school">🏫 Op school</button>'+
+   '<button class="secondary" type="button" data-ride="'+hubEscV1(ride.id)+'" data-status="delay" data-delay="10">+10 min</button>'+
    '</div></article>';
  }).join('');
  box.querySelectorAll('button[data-ride]').forEach(button=>button.addEventListener('click',()=>hubSetPlannerRideStatusV1(button.dataset.ride,button.dataset.status,Number(button.dataset.delay)||0)));
