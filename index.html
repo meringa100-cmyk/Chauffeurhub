@@ -400,7 +400,7 @@ async function checkLastRideRequestV2(){
 (function(){const id=localStorage.getItem('hub_ride_request_last');if(id){checkLastRideRequestV2();setInterval(checkLastRideRequestV2,30000);}})();
 
 /* ChauffeursHub V1 test feed: fictieve ritten uit Taxi Planner, geselecteerd per bestaand chauffeursnummer. */
-const HUB_PLANNER_DEMO_API_V1='https://chauffeurshub-api-meringa100-cmyk.vercel.app/api/planner-demo-ritten';
+const HUB_PLANNER_DEMO_API_V1='https://chauffeurshub-g871e4glt-meringa100-cmyk.vercel.app/api/planner-demo-ritten';
 let hubPlannerRidesV1=[];
 function hubEscV1(value){
  return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
