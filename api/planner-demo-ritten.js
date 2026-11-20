@@ -110,8 +110,12 @@ export default async function handler(req, res) {
       }
       const ride = data.rides.find(x => x.id === rideId && x.driverNumber === driverNumber);
       if (!ride) return send(res, 404, { error: 'Testrit niet gevonden voor deze chauffeur.' });
-      ride.status = status;
-      ride.delay = Math.max(0, Math.min(240, Number(body.delay) || 0));
+      // A delay is an additional flag, not a replacement for the ride's workflow status.
+      // Keep waiting/picked/school intact so Planner dashboard counts remain correct.
+      if (status !== 'delay') ride.status = status;
+      ride.delay = status === 'delay'
+        ? Math.max(10, Math.min(240, Number(body.delay) || 10))
+        : Math.max(0, Math.min(240, Number(body.delay) || 0));
       ride.updatedAt = new Date().toISOString();
       data.updatedAt = ride.updatedAt;
       await save(data);
