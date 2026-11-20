@@ -38,6 +38,15 @@ body.vehicle-gate{overflow:hidden}
 <body>
 <header><div style="font-size:11px;letter-spacing:.14em;color:#c8f169;font-weight:800">CHAUFFEURS HUB</div><h1>Jouw route. Slim geregeld.</h1><p>V10.6 · GitHub testkoppeling · routeplanning · voertuig- en veiligheidscontrole</p><div style="margin-top:9px;font-size:11px;color:#c8f169;letter-spacing:.04em">© Meringa100-CMYK · Eigenaar ChauffeursHub · Alle rechten voorbehouden</div></header>
 <main>
+<section class="card wide" id="hubPlannerRidesV1" style="border:2px solid #1769aa;background:#f3f8fd">
+<h3>🚕 Mijn ritten uit Taxi Planner <span class="hub-pill">TEST</span></h3>
+<p class="hint">Kies een bestaand fictief chauffeursnummer uit Taxi Planner. Je ziet alleen de ritten die aan dat nummer zijn toegewezen. Statusknoppen sturen testmeldingen terug naar Taxi Planner.</p>
+<label for="hubTestDriver">Chauffeursnummer</label>
+<div class="row"><select id="hubTestDriver" aria-label="Testchauffeursnummer"></select><button type="button" class="secondary" id="hubLoadPlannerRides">↻ Ritten ophalen</button></div>
+<div class="status" id="hubPlannerRideStatus" role="status" aria-live="polite">Kies een chauffeursnummer en haal de ritten op.</div>
+<div id="hubPlannerRideList" style="margin-top:10px"></div>
+</section>
+
 
 <section class="card wide" id="newRideRequest">
 <h3>📨 Nieuw adres aanmelden bij Planning</h3>
@@ -106,7 +115,7 @@ body.vehicle-gate{overflow:hidden}
 </main>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const $=s=>document.querySelector(s), box=$('#addresses');let gps=null,map=null,layer=null,markers=[],driverStops=[],completedStops=new Set(),arrivedStops=new Set(),stopResults={},nextStopUrl='',rideFinished=false,savedRouteGeometry=null,savedRoutePoints=[],activeRideId=null,activeDemoTripId=null;const RIDE_STORAGE_KEY='chauffeurshub_active_ride_v3';
+const $=s=>document.querySelector(s), box=$('#addresses');let gps=null,map=null,layer=null,markers=[],hubPlannerOrderLocked=false,driverStops=[],completedStops=new Set(),arrivedStops=new Set(),stopResults={},nextStopUrl='',rideFinished=false,savedRouteGeometry=null,savedRoutePoints=[],activeRideId=null,activeDemoTripId=null;const RIDE_STORAGE_KEY='chauffeurshub_active_ride_v3';
 /* Maak de hoofdonderdelen inklapbaar voor een kortere mobiele pagina. */
 document.querySelectorAll('main > section.card').forEach((card,index)=>{
   const heading=card.querySelector('h3');
@@ -128,10 +137,10 @@ document.querySelectorAll('main > section.card').forEach((card,index)=>{
   toggle.addEventListener('click',()=>{content.hidden=!content.hidden;updateToggle()});
   heading.appendChild(toggle);card.appendChild(content);updateToggle();
 });
-function add(value='',childName='',stopId=''){if(box.children.length>=8){status('Maximaal 8 ophaaladressen.',true);return}let d=document.createElement('div');d.className='entry';d.innerHTML='<span class="num">'+(box.children.length+1)+'</span><div class="entry-fields"><input class="child-name" placeholder="Naam kind (optioneel)" aria-label="Naam kind"><input class="addr" placeholder="Straat huisnummer, plaats" aria-label="Ophaaladres" required></div><button class="remove" aria-label="Verwijder stop">×</button>';d.querySelector('.addr').value=value;d.querySelector('.addr').dataset.stopId=stopId;d.dataset.stopId=stopId;d.querySelector('.child-name').value=childName;d.querySelector('.remove').onclick=()=>{d.remove();renumber()};box.appendChild(d);renumber()}
+function add(value='',childName='',stopId='',scheduledTime='',plannerId=''){if(box.children.length>=8){status('Maximaal 8 ophaaladressen per bus. Niet alle ritten zijn ingeladen; controleer de Planner-indeling.',true);return}let d=document.createElement('div');d.className='entry';d.innerHTML='<span class="num">'+(box.children.length+1)+'</span><div class="entry-fields"><input class="child-name" placeholder="Naam kind (optioneel)" aria-label="Naam kind"><input class="addr" placeholder="Straat huisnummer, plaats" aria-label="Ophaaladres" required></div><button class="remove" aria-label="Verwijder stop">×</button>';d.querySelector('.addr').value=value;d.querySelector('.addr').dataset.stopId=stopId;d.querySelector('.addr').dataset.scheduledTime=scheduledTime;d.querySelector('.addr').dataset.plannerId=plannerId;d.dataset.stopId=stopId;d.querySelector('.child-name').value=childName;d.querySelector('.remove').onclick=()=>{d.remove();renumber()};box.appendChild(d);renumber()}
 function renumber(){[...box.children].forEach((e,i)=>e.querySelector('.num').textContent=i+1)}
 function status(t,err=false){$('#status').textContent=t;$('#status').className='status'+(err?' error':'')}
-async function syncDemoStatus(stop,eventType){if(!activeDemoTripId){$('#rideNotice').textContent='Geen demo-opdracht actief. Laad eerst de testopdracht opnieuw.';$('#rideNotice').className='driver-notice';return false}if(!stop?.stopId){$('#rideNotice').textContent='Terugmelden gestopt: deze ophaalstop heeft geen gekoppeld stopnummer. Laad de demo-opdracht opnieuw en bereken de route opnieuw.';$('#rideNotice').className='driver-notice';return false}try{const r=await fetch('https://chauffeurshub-api-meringa100-cmyk.vercel.app/api/demo-rit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({environment:'demo',tripId:activeDemoTripId,stopId:stop.stopId,eventType})});const data=await r.json();if(!r.ok)throw Error(data.error||'HTTP '+r.status);$('#rideNotice').textContent='✓ '+(stop.childName||stop.address)+' · '+eventType+' ontvangen door de demo-planner ('+stop.stopId+').';$('#rideNotice').className='driver-notice good';return true}catch(e){$('#rideNotice').textContent='Terugmelden mislukt voor '+(stop?.address||'deze stop')+': '+(e.message||'verbindingsfout');$('#rideNotice').className='driver-notice';return false}}
+async function syncDemoStatus(stop,eventType){if(stop?.plannerId){try{const number=document.getElementById('hubTestDriver')?.value;if(!number)throw Error('Geen chauffeursnummer geselecteerd.');const response=await fetch(HUB_PLANNER_DEMO_API_V1,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'status',rideId:String(stop.plannerId),driverNumber:number,status:eventType,delay:eventType==='delay'?10:0})});const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||'Status niet opgeslagen');$('#rideNotice').textContent='✓ '+(stop.childName||stop.address)+' · '+eventType+' teruggekoppeld aan Taxi Planner.';$('#rideNotice').className='driver-notice good';return true}catch(e){$('#rideNotice').textContent='Terugmelden aan Taxi Planner mislukt: '+(e.message||'verbindingsfout');$('#rideNotice').className='driver-notice warn';return false}}if(!activeDemoTripId){$('#rideNotice').textContent='Geen demo-opdracht actief. Laad eerst de testopdracht opnieuw.';$('#rideNotice').className='driver-notice';return false}if(!stop?.stopId){$('#rideNotice').textContent='Terugmelden gestopt: deze ophaalstop heeft geen gekoppeld stopnummer. Laad de demo-opdracht opnieuw en bereken de route opnieuw.';$('#rideNotice').className='driver-notice';return false}try{const r=await fetch('https://chauffeurshub-api-meringa100-cmyk.vercel.app/api/demo-rit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({environment:'demo',tripId:activeDemoTripId,stopId:stop.stopId,eventType})});const data=await r.json();if(!r.ok)throw Error(data.error||'HTTP '+r.status);$('#rideNotice').textContent='✓ '+(stop.childName||stop.address)+' · '+eventType+' ontvangen door de demo-planner ('+stop.stopId+').';$('#rideNotice').className='driver-notice good';return true}catch(e){$('#rideNotice').textContent='Terugmelden mislukt voor '+(stop?.address||'deze stop')+': '+(e.message||'verbindingsfout');$('#rideNotice').className='driver-notice';return false}}
 function saveRideProgress(){try{if(!driverStops.length){localStorage.removeItem(RIDE_STORAGE_KEY);return}localStorage.setItem(RIDE_STORAGE_KEY,JSON.stringify({version:3,savedAt:new Date().toISOString(),rideId:activeRideId,driverStops,completed:[...completedStops],arrived:[...arrivedStops],results:stopResults,finished:rideFinished,settings:{start:$('#start').value,gps:gps?{lat:gps.lat,lon:gps.lon,label:gps.label}:null,school:$('#school').value,deadline:$('#deadline').value,buffer:$('#buffer').value,stops:[...box.children].map(e=>({address:e.querySelector('.addr').value,childName:e.querySelector('.child-name')?.value||''}))},routeGeometry:savedRouteGeometry,routePoints:savedRoutePoints,summary:{km:$('#km').textContent,drive:$('#drive').textContent,leave:$('#leave').textContent,schooltime:$('#schooltime').textContent}}))}catch(e){$('#rideNotice').textContent='Voortgang kon niet lokaal worden bewaard. Laat deze pagina open.'}}function restoreRideProgress(){try{const raw=localStorage.getItem(RIDE_STORAGE_KEY);if(!raw)return false;const s=JSON.parse(raw);if(s.version!==3||!Array.isArray(s.driverStops)||!s.driverStops.length)return false;driverStops=s.driverStops;activeRideId=s.rideId||null;completedStops=new Set(s.completed||[]);arrivedStops=new Set(s.arrived||[]);stopResults=s.results||{};rideFinished=!!s.finished;const q=s.settings||{};$('#start').value=q.start||$('#start').value;gps=q.gps&&Number.isFinite(q.gps.lat)&&Number.isFinite(q.gps.lon)?q.gps:null;savedRouteGeometry=s.routeGeometry||null;savedRoutePoints=Array.isArray(s.routePoints)?s.routePoints:[];$('#school').value=q.school||'';$('#deadline').value=q.deadline||'08:30';$('#buffer').value=q.buffer??'10';box.innerHTML='';(q.stops||[]).forEach(x=>add(x.address||'',x.childName||''));const m=s.summary||{};$('#km').textContent=m.km||'—';$('#drive').textContent=m.drive||'—';$('#leave').textContent=m.leave||'—';$('#schooltime').textContent=m.schooltime||$('#deadline').value;$('#stops').innerHTML=driverStops.map((x,i)=>'<div class="stop"><b>'+(i===0?'Start':'Stop '+i)+'</b> · '+esc(x.address)+'</div>').join('');$('#timeline').innerHTML=driverStops.map((x,i)=>'<div class="timeline"><b>Stop '+(i+1)+' · '+(x.childName?esc(x.childName)+' · ':'')+esc(x.address)+'</b><br>Klaarstaan om <b>'+esc(x.time)+'</b></div>').join('');$('#shareRide').disabled=false;$('#shareStatus').textContent='Opgeslagen rit hersteld.';$('#rideNotice').textContent='Opgeslagen rit hersteld van '+new Date(s.savedAt||Date.now()).toLocaleString('nl-NL')+'.';$('#rideNotice').className='driver-notice';renderDriverMode();drawSavedRouteMap();return true}catch(e){return false}}async function finishRide(){
  if(!driverStops.length)return;
  const unresolved=driverStops.map((s,i)=>({s,i})).filter(x=>!completedStops.has(x.i));
@@ -208,10 +217,10 @@ $('#gps').onclick=()=>{if(!window.isSecureContext){$('#gpsstatus').textContent='
 $('#start').addEventListener('input',()=>{if(!$('#start').value.includes('Mijn huidige locatie'))gps=null});
 async function geocode(q){let r;try{r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q),{headers:{'Accept-Language':'nl'}})}catch(e){throw Error('Verbinding met de adreszoekdienst (OpenStreetMap/Nominatim) mislukt. Probeer opnieuw via wifi of mobiel internet.')}if(!r.ok)throw Error('Adreszoekdienst gaf HTTP '+r.status+'.');let a=await r.json();if(!a.length)throw Error('Adres niet gevonden: '+q);return {lat:+a[0].lat,lon:+a[0].lon,label:a[0].display_name}}
 function minsText(n){n=Math.round(n);return n<60?n+' min':Math.floor(n/60)+' u '+n%60+' min'}function clock(d){return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-$('#calc').onclick=async()=>{let start=$('#start').value.trim(),stopEntries=[...box.children].map(e=>({address:e.querySelector('.addr').value.trim(),childName:e.querySelector('.child-name')?.value.trim()||'',stopId:e.querySelector('.addr')?.dataset.stopId||e.dataset.stopId||''})).filter(x=>x.address),addresses=stopEntries.map(x=>x.address);if(!start||!addresses.length){status('Vul een vertrekpunt en minimaal één ophaaladres in.',true);return}let btn=$('#calc');btn.disabled=true;btn.textContent='Route berekenen…';status('Adressen zoeken en route berekenen…');try{
+$('#calc').onclick=async()=>{let start=$('#start').value.trim(),stopEntries=[...box.children].map(e=>({address:e.querySelector('.addr').value.trim(),childName:e.querySelector('.child-name')?.value.trim()||'',stopId:e.querySelector('.addr')?.dataset.stopId||e.dataset.stopId||'',scheduledTime:e.querySelector('.addr')?.dataset.scheduledTime||'',plannerId:e.querySelector('.addr')?.dataset.plannerId||''})).filter(x=>x.address),addresses=stopEntries.map(x=>x.address);if(!start||!addresses.length){status('Vul een vertrekpunt en minimaal één ophaaladres in.',true);return}let btn=$('#calc');btn.disabled=true;btn.textContent='Route berekenen…';status('Adressen zoeken en route berekenen…');try{
 let stage='vertrekadres zoeken';let places=[];places.push(gps&&start==='Mijn huidige locatie (GPS)'?gps:await geocode(start));for(let i=0;i<addresses.length;i++){stage='ophaaladres '+(i+1)+' zoeken';places.push(await geocode(addresses[i]))}let schoolq=$('#school').value.trim(),school=null;if(schoolq){stage='schooladres zoeken';school=await geocode(schoolq)}
 let n=addresses.length,order=addresses.map((_,i)=>i+1),optimized=false;
-try{stage='rijtijden ophalen';let coords=places.map(p=>p.lon+','+p.lat).join(';'),r=await fetch('https://router.project-osrm.org/table/v1/driving/'+coords+'?annotations=duration'),t=await r.json();if(t.code==='Ok'){let full=(1<<n)-1,dp=Array.from({length:1<<n},()=>Array(n).fill(Infinity)),prev=Array.from({length:1<<n},()=>Array(n).fill(-1));for(let j=0;j<n;j++)dp[1<<j][j]=t.durations[0][j+1];for(let mask=1;mask<=full;mask++)for(let last=0;last<n;last++){let base=dp[mask][last];if(!Number.isFinite(base))continue;for(let nx=0;nx<n;nx++)if(!(mask&(1<<nx))&&Number.isFinite(t.durations[last+1][nx+1])){let nm=mask|(1<<nx),v=base+t.durations[last+1][nx+1];if(v<dp[nm][nx]){dp[nm][nx]=v;prev[nm][nx]=last}}}let last=dp[full].indexOf(Math.min(...dp[full]));if(Number.isFinite(dp[full][last])){let rev=[],mask=full,cur=last;while(cur>=0){rev.push(cur+1);let pr=prev[mask][cur];mask^=1<<cur;cur=pr}order=rev.reverse();optimized=true}}}catch(e){}
+if(!hubPlannerOrderLocked){try{stage='rijtijden ophalen';let coords=places.map(p=>p.lon+','+p.lat).join(';'),r=await fetch('https://router.project-osrm.org/table/v1/driving/'+coords+'?annotations=duration'),t=await r.json();if(t.code==='Ok'){let full=(1<<n)-1,dp=Array.from({length:1<<n},()=>Array(n).fill(Infinity)),prev=Array.from({length:1<<n},()=>Array(n).fill(-1));for(let j=0;j<n;j++)dp[1<<j][j]=t.durations[0][j+1];for(let mask=1;mask<=full;mask++)for(let last=0;last<n;last++){let base=dp[mask][last];if(!Number.isFinite(base))continue;for(let nx=0;nx<n;nx++)if(!(mask&(1<<nx))&&Number.isFinite(t.durations[last+1][nx+1])){let nm=mask|(1<<nx),v=base+t.durations[last+1][nx+1];if(v<dp[nm][nx]){dp[nm][nx]=v;prev[nm][nx]=last}}}let last=dp[full].indexOf(Math.min(...dp[full]));if(Number.isFinite(dp[full][last])){let rev=[],mask=full,cur=last;while(cur>=0){rev.push(cur+1);let pr=prev[mask][cur];mask^=1<<cur;cur=pr}order=rev.reverse();optimized=true}}}catch(e){}}
 stage='definitieve autoroute ophalen';let ordered=[places[0],...order.map(i=>places[i])];if(school)ordered.push(school);let c=ordered.map(p=>p.lon+','+p.lat).join(';'),rr=await fetch('https://router.project-osrm.org/route/v1/driving/'+c+'?overview=full&geometries=geojson');let rd=await rr.json();if(rd.code!=='Ok'||!rd.routes?.length)throw Error('Geen autoroute gevonden.');let route=rd.routes[0];
 /* Bescherm tegen onmogelijke rijtijden van de router: 8,6 km mag geen 16 uur worden.
    OSRM levert duur in seconden. Bij een onwaarschijnlijke gemiddelde snelheid (< 5 km/u)
@@ -234,7 +243,7 @@ let totalService=(school?n:Math.max(0,n-1))*service,depart=new Date(deadline.get
 for(let oi=n-1;oi>=0;oi--){let pickupPosition=oi+1,driveAfter=0;for(let legIndex=pickupPosition;legIndex<legs.length;legIndex++){driveAfter+=Math.ceil((legs[legIndex]?.duration||0)/60)}let serviceFromHere=(school?n-oi:Math.max(0,n-1-oi))*service;times[oi]=new Date(deadline.getTime()-(buf+driveAfter+serviceFromHere)*60000)}
 $('#km').textContent=(route.distance/1000).toFixed(1);$('#drive').textContent=minsText(route.duration/60);$('#leave').textContent=clock(depart);$('#schooltime').textContent=$('#deadline').value||'08:30';
 $('#stops').innerHTML=ordered.map((p,i)=>'<div class="stop"><b>'+(i===0?'Start':school&&i===ordered.length-1?'School':'Stop '+i)+'</b> · '+esc(p.label)+(i>0&&i<=n?'':'')+'</div>').join('');
-$('#timeline').innerHTML=order.map((id,oi)=>'<div class="timeline"><b>Stop '+(oi+1)+' · '+(stopEntries[id-1]?.childName?esc(stopEntries[id-1].childName)+' · ':' ')+esc(addresses[id-1])+'</b><br>Kind klaarstaan om <b>'+clock(times[oi])+'</b> · geschatte ophaalduur '+service+' min</div>').join('')+'<div class="timeline"><b>Vertrek uiterlijk '+clock(depart)+'</b> · '+(school?'Aankomst school/eindbestemming uiterlijk '+clock(deadline):'Let op: zonder schooladres rekent de eindtijd tot het laatste ophaaladres. Voeg een schooladres toe voor een betrouwbare aankomsttijd.')+'</div>';activeRideId=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);driverStops=order.map((id,oi)=>({address:addresses[id-1],childName:stopEntries[id-1]?.childName||'',stopId:stopEntries[id-1]?.stopId||'',time:clock(times[oi]),url:'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(addresses[id-1])+'&travelmode=driving'}));completedStops.clear();arrivedStops.clear();stopResults={};rideFinished=false;nextStopUrl=driverStops[0]?.url||'';saveRideProgress();renderDriverMode();$('#shareRide').disabled=false;$('#shareStatus').textContent='Ritoverzicht klaar om te delen of te kopiëren.';
+$('#timeline').innerHTML=order.map((id,oi)=>'<div class="timeline"><b>Stop '+(oi+1)+' · '+(stopEntries[id-1]?.childName?esc(stopEntries[id-1].childName)+' · ':' ')+esc(addresses[id-1])+'</b><br>Kind klaarstaan om <b>'+clock(times[oi])+'</b> · geschatte ophaalduur '+service+' min</div>').join('')+'<div class="timeline"><b>Vertrek uiterlijk '+clock(depart)+'</b> · '+(school?'Aankomst school/eindbestemming uiterlijk '+clock(deadline):'Let op: zonder schooladres rekent de eindtijd tot het laatste ophaaladres. Voeg een schooladres toe voor een betrouwbare aankomsttijd.')+'</div>';activeRideId=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);driverStops=order.map((id,oi)=>({address:addresses[id-1],childName:stopEntries[id-1]?.childName||'',stopId:stopEntries[id-1]?.stopId||'',scheduledTime:stopEntries[id-1]?.scheduledTime||'',plannerId:stopEntries[id-1]?.plannerId||'',time:stopEntries[id-1]?.scheduledTime||clock(times[oi]),url:'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(addresses[id-1])+'&travelmode=driving'}));completedStops.clear();arrivedStops.clear();stopResults={};rideFinished=false;nextStopUrl=driverStops[0]?.url||'';saveRideProgress();renderDriverMode();$('#shareRide').disabled=false;$('#shareStatus').textContent='Ritoverzicht klaar om te delen of te kopiëren.';
 $('#nextNav').onclick=()=>{const next=driverStops.find((_,i)=>!completedStops.has(i));if(next)window.open(next.url,'_blank','noopener')};
 $('#nav').href='https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(start==='Mijn huidige locatie (GPS)'?places[0].lat+','+places[0].lon:start)+'&destination='+encodeURIComponent(schoolq||addresses[order[n-1]-1])+'&waypoints='+encodeURIComponent((schoolq?order:order.slice(0,-1)).map(i=>addresses[i-1]).join('|'))+'&travelmode=driving';$('#nav').style.display='block';status('Route berekend. '+(optimized?'Snelste stopvolgorde bepaald. ':'Ingevoerde volgorde gebruikt. ')+'Tijden zijn schattingen; controleer of de rit haalbaar is.'+durationWarning)}catch(e){status((e.message||'Onbekende fout')+' (Stap: '+(typeof stage==='undefined'?'routeberekening':stage)+').',true)}finally{btn.disabled=false;btn.textContent='✦ Bereken route'}};
 
@@ -389,5 +398,77 @@ async function checkLastRideRequestV2(){
  }catch(e){status.textContent='Aanvraagstatus tijdelijk niet beschikbaar. Probeer later opnieuw.';}
 }
 (function(){const id=localStorage.getItem('hub_ride_request_last');if(id){checkLastRideRequestV2();setInterval(checkLastRideRequestV2,30000);}})();
+
+/* ChauffeursHub V1 test feed: fictieve ritten uit Taxi Planner, geselecteerd per bestaand chauffeursnummer. */
+const HUB_PLANNER_DEMO_API_V1='https://chauffeurshub-api-meringa100-cmyk.vercel.app/api/planner-demo-ritten';
+let hubPlannerRidesV1=[];
+function hubEscV1(value){
+ return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function hubInitPlannerDriversV1(){
+ const select=document.getElementById('hubTestDriver');
+ if(!select||select.options.length)return;
+ for(let n=1001;n<=1060;n++){
+  const option=document.createElement('option');option.value=String(n);option.textContent='Chauffeur '+n;select.appendChild(option);
+ }
+}
+function hubRenderPlannerRidesV1(){
+ const box=document.getElementById('hubPlannerRideList');if(!box)return;
+ if(!hubPlannerRidesV1.length){box.innerHTML='<div class="status">Geen ritten gevonden voor dit chauffeursnummer. Publiceer eerst de huidige planning vanuit Taxi Planner.</div>';return;}
+ box.innerHTML=hubPlannerRidesV1.map((ride,index)=>{
+  const statusLabel=({waiting:'Wachtend',picked:'Opgehaald / onderweg',absent:'Afwezig',school:'Op school',loose:'Loosmelding',delay:'Vertraging'})[ride.status]||ride.status;
+  return '<article class="history-item"><b>'+(index+1)+'. '+hubEscV1(ride.time)+' · '+hubEscV1(ride.childName||'Kind')+'</b>'+
+   '<div>'+hubEscV1(ride.address)+'</div><div class="hint">Bestemming: '+hubEscV1(ride.destination||'—')+'</div>'+
+   '<div class="hint">Status: <strong>'+hubEscV1(statusLabel)+'</strong>'+(ride.delay?' · vertraging '+hubEscV1(ride.delay)+' min':'')+'</div>'+
+   '<div class="history-actions">'+
+   '<button class="secondary" type="button" data-ride="'+hubEscV1(ride.id)+'" data-status="picked">✓ Opgehaald</button>'+
+   '<button class="secondary" type="button" data-ride="'+hubEscV1(ride.id)+'" data-status="absent">Afwezig</button>'+
+   '<button class="secondary" type="button" data-ride="'+hubEscV1(ride.id)+'" data-status="school">🏫 Op school</button>'+
+   '<button class="secondary" type="button" data-ride="'+hubEscV1(ride.id)+'" data-status="delay" data-delay="10">+10 min</button>'+
+   '</div></article>';
+ }).join('');
+ box.querySelectorAll('button[data-ride]').forEach(button=>button.addEventListener('click',()=>hubSetPlannerRideStatusV1(button.dataset.ride,button.dataset.status,Number(button.dataset.delay)||0)));
+}
+async function hubLoadPlannerRidesV1(){
+ const number=document.getElementById('hubTestDriver')?.value;
+ const status=document.getElementById('hubPlannerRideStatus');
+ if(!number)return;
+ if(status)status.textContent='Ritten ophalen…';
+ try{
+  const response=await fetch(HUB_PLANNER_DEMO_API_V1+'?driverNumber='+encodeURIComponent(number),{cache:'no-store'});
+  const data=await response.json();
+  if(!response.ok||!data.ok)throw new Error(data.error||'Ophalen mislukt');
+  hubPlannerRidesV1=(data.rides||[]).slice().sort((a,b)=>(Number(a.routeOrder)||9999)-(Number(b.routeOrder)||9999)||String(a.time||'').localeCompare(String(b.time||'')));
+  hubRenderPlannerRidesV1();
+  hubApplyPlannerRidesToRouteV1();
+  if(status)status.textContent=hubPlannerRidesV1.length+' ritten gevonden voor chauffeur '+number+'. Ze zijn in de ritinvoer gezet. Laatste Planner-publicatie: '+(data.updatedAt?new Date(data.updatedAt).toLocaleString('nl-NL'):'onbekend')+'.';
+ }catch(error){if(status)status.textContent='Koppeling niet bereikbaar: '+(error.message||'onbekende fout');}
+}
+function hubApplyPlannerRidesToRouteV1(){
+ const count=hubPlannerRidesV1.length,status=document.getElementById('hubPlannerRideStatus');
+ box.innerHTML='';hubPlannerOrderLocked=true;
+ if(!count){hubPlannerOrderLocked=false;if(status)status.textContent='Geen ritten om in de route te zetten.';return;}
+ hubPlannerRidesV1.forEach((ride,index)=>{if(index<8)add(ride.address||'',ride.childName||'',ride.id||'',ride.time||'',ride.id||'');});
+ const destinations=[...new Set(hubPlannerRidesV1.map(x=>String(x.destination||'').trim()).filter(Boolean))];
+ $('#school').value=destinations.length===1?destinations[0]:'';
+ if(destinations.length>1&&status)status.textContent+=' Let op: meerdere bestemmingen; kies de juiste eindbestemming handmatig.';
+ if(count>8){if(status){status.textContent='LET OP: '+count+' ritten toegewezen, maximaal 8 stops per route. Alleen de eerste 8 staan ingevuld; '+(count-8)+' ritten zijn NIET meegenomen. Verdeel eerst in Taxi Planner.';status.className='status error';}$('#calc').disabled=true;}
+ else{$('#calc').disabled=false;if(status)status.className='status';}
+}
+async function hubSetPlannerRideStatusV1(rideId,nextStatus,delay=0){
+ const number=document.getElementById('hubTestDriver')?.value;
+ const status=document.getElementById('hubPlannerRideStatus');
+ try{
+  const response=await fetch(HUB_PLANNER_DEMO_API_V1,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'status',rideId,driverNumber:number,status:nextStatus,delay})});
+  const data=await response.json();
+  if(!response.ok||!data.ok)throw new Error(data.error||'Status niet opgeslagen');
+  if(status)status.textContent='Teststatus bijgewerkt. Haal daarna in Taxi Planner de Chauffeursstatussen op.';
+  await hubLoadPlannerRidesV1();
+ }catch(error){if(status)status.textContent='Status niet opgeslagen: '+(error.message||'onbekende fout');}
+}
+window.hubSetPlannerRideStatusV1=hubSetPlannerRideStatusV1;
+document.getElementById('hubLoadPlannerRides')?.addEventListener('click',hubLoadPlannerRidesV1);
+hubInitPlannerDriversV1();
+
 </script>
 </body></html>
