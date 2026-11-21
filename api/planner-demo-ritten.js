@@ -66,7 +66,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       if (req.query?.mode === 'statuses') {
-        return send(res, 200, { ok: true, demo: true, updatedAt: data.updatedAt, statuses: data.rides.map(ride => ({ id: ride.id, status: ride.status, delay: ride.delay, updatedAt: ride.updatedAt })) });
+        return send(res, 200, { ok: true, demo: true, updatedAt: data.updatedAt, statuses: data.rides.map(ride => ({ id: ride.id, driverNumber: ride.driverNumber, status: ride.status, delay: ride.delay, updatedAt: ride.updatedAt })) });
       }
       const driverNumber = cleanText(req.query?.driverNumber, 8);
       if (!/^\d{4,8}$/.test(driverNumber)) return send(res, 400, { error: 'Geef een geldig test-chauffeursnummer op.' });
@@ -88,10 +88,17 @@ export default async function handler(req, res) {
       const rides = body.rides.map(cleanRide).filter(Boolean).map(ride => {
         const prior = previous.get(String(ride.id)+'|'+String(ride.driverNumber));
         // Preserve a status reported by ChauffeursHub when Planner republishes its unchanged base schedule.
-        if (prior && prior.status && prior.status !== 'waiting') {
-          ride.status = prior.status;
-          ride.delay = Math.max(0, Math.min(240, Number(prior.delay) || 0));
-          ride.updatedAt = prior.updatedAt || ride.updatedAt;
+        if (prior) {
+          // Keep driver-reported workflow status until an explicit demo reset.
+          if (prior.status && prior.status !== 'waiting') ride.status = prior.status;
+          // Delay is a separate flag. Keep an active driver delay when Planner republishes
+          // an unchanged base schedule; a driver status update or demo reset can clear it.
+          if (Number(prior.delay) > 0 && Number(ride.delay) <= 0) {
+            ride.delay = Math.max(0, Math.min(240, Number(prior.delay) || 0));
+          }
+          if (ride.status === prior.status || ride.delay === Number(prior.delay || 0)) {
+            ride.updatedAt = prior.updatedAt || ride.updatedAt;
+          }
         }
         return ride;
       });
@@ -99,6 +106,18 @@ export default async function handler(req, res) {
       data.updatedAt = new Date().toISOString();
       await save(data);
       return send(res, 200, { ok: true, demo: true, count: rides.length, drivers: [...new Set(rides.map(x => x.driverNumber))].length, updatedAt: data.updatedAt });
+    }
+
+    if (body.action === 'resetStatuses') {
+      const now = new Date().toISOString();
+      let resetCount = 0;
+      data.rides = data.rides.map(ride => {
+        if (ride.status !== 'waiting' || Number(ride.delay) > 0) resetCount++;
+        return { ...ride, status: 'waiting', delay: 0, updatedAt: now };
+      });
+      data.updatedAt = now;
+      await save(data);
+      return send(res, 200, { ok: true, demo: true, resetCount, updatedAt: now });
     }
 
     if (body.action === 'status') {
